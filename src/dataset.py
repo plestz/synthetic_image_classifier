@@ -48,6 +48,8 @@ class ImageDataset(Dataset):
         image_type = 'REAL' if index < self.num_real_instances else 'FAKE'
         folder_path = f'../data/{self.split}/{image_type}/'
 
+        # If image is fake, index into FAKE folder must be offset by number
+        # of real instances to ensure proper zero-indexing.
         if image_type == 'FAKE':
             index -= self.num_real_instances
 
@@ -58,13 +60,17 @@ class ImageDataset(Dataset):
         image = read_image(image_path)
         image = image.float() # convert from uint8 to float32
         image /= 255.0 # normalize to [0,1] scale from [0,255]
+
+        label = None
         
         if self.label_type == Label.OBJECT:
             open_paren_index = image_name.find('(')
             closed_paren_index = image_name.find(')')
             label = int(image_name[open_paren_index+1:closed_paren_index]) if open_paren_index != -1 else 1
         elif self.label_type == Label.REAL_OR_SYNTHETIC:
-            label = 'Real' if image_type == 'REAL' else 'Synthetic'
+            label = 0 if image_type == 'REAL' else 1 # (0 = Real, 1 = Synthetic)
+        else:
+            raise ValueError('No proper label type provided.')
         
         if self.transform:
             image = self.transform(image)
@@ -92,7 +98,7 @@ def get_channel_means_stdevs(dataloader: DataLoader, num_channels = 1, verbose =
             print(f'Processed {(i+1) * dataloader.batch_size} total images.')
 
     channel_means = cumulative_sum / total_pixels
-    channel_variances = (cumulative_squared_sum / total_pixels) - channel_means**2 # V[X] = E[X]^2 - E[X]^2
+    channel_variances = (cumulative_squared_sum / total_pixels) - channel_means**2 # V[X] = E[X^2] - E[X]^2
     channel_stdevs = torch.sqrt(channel_variances)
 
     return tuple(channel_means.tolist()), tuple(channel_stdevs.tolist())
