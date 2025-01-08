@@ -78,7 +78,6 @@ class ImageDataset(Dataset):
             X -- Image features (i.e. pixels)
             y -- Image label
         """
-
         if index < 0 or index >= self.__len__():
             raise IndexError(f'Provided index out of range of number of files available in {self.split} split.')
         
